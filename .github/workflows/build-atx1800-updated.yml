@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 env:
-  OWR_BRANCH: openwrt-24.10   # or use openwrt-23.05 for 23.05 release
+  OWR_BRANCH: openwrt-24.10
   GL_VERSION: 4.7.5
   GL_VERMAGIC: any
 
@@ -25,7 +25,8 @@ jobs:
 
       - name: Clone OpenWrt
         run: |
-          git clone --depth 1 --branch "${OWR_BRANCH}" https://github.com/openwrt/openwrt.git openwrt
+          git clone --depth 1 --branch "${OWR_BRANCH}" \
+            https://github.com/openwrt/openwrt.git openwrt
 
       - name: Prepare Feeds
         run: |
@@ -33,10 +34,24 @@ jobs:
           ./scripts/feeds update -a
           ./scripts/feeds install -a
 
-      - name: Build Tools & Packages
+      - name: Configure defaults
         run: |
           cd openwrt
-          make package/amneziawg-tools/{download,prepare,compile} V=s -j$(nproc)
+          make defconfig
+
+      - name: Enable AmneziaWG packages
+        run: |
+          cd openwrt
+          scripts/config --enable PACKAGE_amneziawg-tools
+          scripts/config --enable PACKAGE_luci-proto-amneziawg
+          scripts/config --enable PACKAGE_kmod-amneziawg
+          # regenerate .config to include those selections
+          make defconfig
+
+      - name: Build Packages
+        run: |
+          cd openwrt
+          make package/amneziawg-tools/compile V=s -j$(nproc)
           make package/luci-proto-amneziawg/compile V=s -j$(nproc)
           make package/kmod-amneziawg/compile V=s -j$(nproc)
 
