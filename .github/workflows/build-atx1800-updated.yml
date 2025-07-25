@@ -1,0 +1,56 @@
+name: Build AmneziaWG for ATX1800 Slate
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  OWR_BRANCH: openwrt-24.10   # or use openwrt-23.05 for 23.05 release
+  GL_VERSION: 4.7.5
+  GL_VERMAGIC: any
+
+jobs:
+  build:
+    name: Build AXT1800 Packages
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout AmneziaWG repo
+        uses: actions/checkout@v4
+
+      - name: Clone OpenWrt
+        run: |
+          git clone --depth 1 --branch "${OWR_BRANCH}" https://github.com/openwrt/openwrt.git openwrt
+
+      - name: Prepare Feeds
+        run: |
+          cd openwrt
+          ./scripts/feeds update -a
+          ./scripts/feeds install -a
+
+      - name: Build Tools & Packages
+        run: |
+          cd openwrt
+          make package/amneziawg-tools/{download,prepare,compile} V=s -j$(nproc)
+          make package/luci-proto-amneziawg/compile V=s -j$(nproc)
+          make package/kmod-amneziawg/compile V=s -j$(nproc)
+
+      - name: Collect Artifacts
+        run: |
+          cd openwrt
+          mkdir -p awg
+          cp bin/packages/aarch64_cortex-a53/base/amneziawg-tools_*.ipk awg/
+          cp bin/packages/aarch64_cortex-a53/base/luci-proto-amneziawg_*.ipk awg/
+          cp bin/targets/ipq806x/generic/packages/kmod-amneziawg_*.ipk awg/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: "AmneziaWG v${{ env.GL_VERSION }} (AXT1800)"
+          tag_name: "ATX1800_v${{ env.GL_VERSION }}"
+          files: openwrt/awg/*.ipk
