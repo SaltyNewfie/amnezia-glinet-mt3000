@@ -16,36 +16,37 @@ env:
 
 jobs:
   build:
+    name: Build AXT1800 Packages
     runs-on: ubuntu-22.04
 
     steps:
-      # 1) Checkout this repo (so config_4.8.0.buildinfo is present)
+      # 1) Checkout this repo (to get config_4.8.0.buildinfo)
       - name: Checkout main repo
         uses: actions/checkout@v4
 
-      # 2) Checkout the AmneziaWG overlay (with the package definitions)
-      - name: Checkout AmneziaWG overlay
+      # 2) Checkout the MT-3000 repo (it contains the overlay under openwrt/)
+      - name: Checkout MT3000 overlay
         uses: actions/checkout@v4
         with:
-          repository: SaltyNewfie/amneziawg-openwrt
-          path: amneziawg-openwrt
-          fetch-depth: 0
+          repository: xa0c-net/amnezia-glinet-mt3000
+          path: mt3000
+          fetch-depth: 1
 
-      # 3) Clone the OpenWrt 23.05 snapshot
+      # 3) Clone OpenWrt snapshot
       - name: Clone OpenWrt snapshot
         run: |
           git clone --depth 1 --branch "${OWR_BRANCH}" \
             https://github.com/openwrt/openwrt.git openwrt
 
-      # 4) Copy in your 533-line .config
+      # 4) Copy your full .config
       - name: Apply GL.iNet buildinfo (.config)
         run: |
           cp config_${{ env.GL_VERSION }}.buildinfo openwrt/.config
 
-      # 5) **Correct** overlay: copy from overlay/package, not overlay/openwrt
+      # 5) Overlay the AmneziaWG package definitions from MT3000 repo
       - name: Overlay AmneziaWG packages
         run: |
-          cp -r amneziawg-openwrt/package/amneziawg-* openwrt/package/
+          cp -r mt3000/openwrt/package/amneziawg-* openwrt/package/
 
       # 6) Prepare feeds
       - name: Prepare feeds
@@ -62,7 +63,7 @@ jobs:
           make package/luci-proto-amneziawg/compile V=s -j$(nproc)
           make package/kmod-amneziawg/compile V=s -j$(nproc)
 
-      # 8) Collect the .ipk artifacts
+      # 8) Collect the resulting .ipk files
       - name: Collect artifacts
         run: |
           cd openwrt
@@ -71,7 +72,7 @@ jobs:
           cp bin/packages/aarch64_cortex-a53/base/luci-proto-amneziawg_*.ipk awg/
           cp bin/targets/ipq806x/generic/packages/kmod-amneziawg_*.ipk awg/
 
-      # 9) Publish a GitHub Release
+      # 9) Publish a Release
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
