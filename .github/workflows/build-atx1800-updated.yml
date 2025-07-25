@@ -11,14 +11,11 @@ permissions:
 
 env:
   OWR_BRANCH: openwrt-23.05
-  # Optional: pin to a known snapshot commit
-  # OWR_COMMIT: '<YOUR_23.05_SNAPSHOT_SHA>'
   GL_VERSION: '4.8.0'
   GL_VERMAGIC: any
 
 jobs:
   build:
-    name: Build AXT1800 Packages
     runs-on: ubuntu-22.04
 
     steps:
@@ -29,25 +26,18 @@ jobs:
         run: |
           git clone --depth 1 --branch "${OWR_BRANCH}" \
             https://github.com/openwrt/openwrt.git openwrt
-          cd openwrt
-          # If you want to pin to a specific commit, uncomment:
-          # git fetch --depth 1 origin "${OWR_COMMIT}"
-          # git checkout "${OWR_COMMIT}"
-          cd ..
 
       - name: Apply GL.iNet buildinfo (.config)
         run: |
           cp config_${{ env.GL_VERSION }}.buildinfo openwrt/.config
 
-      - name: Enable AmneziaWG packages
+      - name: Enable AmneziaWG packages via sed
         run: |
           cd openwrt
-          # Force-enable your three packages
-          scripts/config --enable PACKAGE_amneziawg-tools
-          scripts/config --enable PACKAGE_luci-proto-amneziawg
-          scripts/config --enable PACKAGE_kmod-amneziawg
-          # Regenerate .config with these selections
-          make defconfig
+          # turn on the three amneziawg packages
+          sed -i 's@# CONFIG_PACKAGE_amneziawg-tools is not set@CONFIG_PACKAGE_amneziawg-tools=y@' .config
+          sed -i 's@# CONFIG_PACKAGE_luci-proto-amneziawg is not set@CONFIG_PACKAGE_luci-proto-amneziawg=y@' .config
+          sed -i 's@# CONFIG_PACKAGE_kmod-amneziawg is not set@CONFIG_PACKAGE_kmod-amneziawg=y@' .config
 
       - name: Prepare feeds
         run: |
