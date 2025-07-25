@@ -1,0 +1,5 @@
+# config_4.8.0.buildinfo
+BRANCH=openwrt-23.05
+COMMIT=<FULL_40_CHAR_SHA_FOR_23.05_SNAPSHOT>
+FEEDS_URL=https://github.com/openwrt/packages
+DL_DIR=dlfiles
