@@ -2,8 +2,7 @@ name: Build AmneziaWG for AXT1800 Slate
 
 on:
   push:
-    tags:
-      - 'v*.*.*'
+    tags: ['v*.*.*']
   workflow_dispatch:
 
 permissions:
@@ -15,30 +14,29 @@ env:
 
 jobs:
   build:
-    name: Build AXT1800 Packages
     runs-on: ubuntu-22.04
 
     steps:
-      # 1) Checkout your MT-3000 repo (contains both buildinfo and overlay under openwrt/)
+      # 1) Checkout your MT-3000 fork (contains both config_4.8.0.buildinfo and openwrt/)
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2) Clone the real OpenWrt 23.05 SNAPSHOT into its own folder
+      # 2) Clone the OpenWrt snapshot separately
       - name: Clone OpenWrt 23.05 snapshot
         run: |
           git clone --depth 1 \
             --branch "${OWR_BRANCH}" \
             https://github.com/openwrt/openwrt.git openwrt-src
 
-      # 3) Copy in your full .config buildinfo
+      # 3) Copy in your full .config
       - name: Apply GL.iNet buildinfo (.config)
         run: |
           cp config_${{ env.GL_VERSION }}.buildinfo openwrt-src/.config
 
-      # 4) Overlay the three AmneziaWG packages
+      # 4) Overlay the three AmneziaWG packages from your repo’s root openwrt/
       - name: Overlay AmneziaWG packages
         run: |
-          cp -r openwrt/package/amneziawg-* openwrt-src/package/
+          cp -r ./openwrt/package/amneziawg-* openwrt-src/package/
 
       # 5) Prepare feeds
       - name: Prepare feeds
@@ -55,7 +53,7 @@ jobs:
           make package/luci-proto-amneziawg/compile V=s -j"$(nproc)"
           make package/kmod-amneziawg/compile V=s -j"$(nproc)"
 
-      # 7) Gather the resulting .ipks
+      # 7) Collect the .ipks
       - name: Collect artifacts
         run: |
           cd openwrt-src
@@ -64,7 +62,7 @@ jobs:
           cp bin/packages/aarch64_cortex-a53/base/luci-proto-amneziawg_*.ipk awg/
           cp bin/targets/ipq806x/generic/packages/kmod-amneziawg_*.ipk awg/
 
-      # 8) Publish a GitHub Release with those IPKs
+      # 8) Publish a GitHub Release
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
