@@ -1,0 +1,64 @@
+name: Build AmneziaWG packages (ATX1800 Slate)
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  owr_branch: "openwrt-24.10"
+  owr_commit: "ea17e958b9"
+  gl_version: "4.7.5"
+  gl_vermagic: "any"
+
+jobs:
+  build:
+    name: Build AmneziaWG for ATX1800
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Clone OpenWrt
+        run: |
+          git clone --branch ${OWR_BRANCH} --depth 1 https://github.com/openwrt/openwrt.git openwrt
+          cd openwrt
+          git checkout ${OWR_COMMIT}
+
+      - name: Prepare feeds
+        run: |
+          cd openwrt
+          ./scripts/feeds update -a
+          ./scripts/feeds install -a
+
+      - name: Configure default
+        run: |
+          cd openwrt
+          make defconfig
+
+      - name: Build tools and packages
+        run: |
+          cd openwrt
+          make package/awg/amneziawg-tools/{download,prepare,compile} -j$(nproc) V=s
+          make package/awg/luci-proto-amneziawg/compile -j$(nproc) V=s
+          make package/awg/kmod-amneziawg/compile -j$(nproc) V=s
+
+      - name: Collect artifacts
+        run: |
+          cd openwrt
+          mkdir -p awg
+          cp bin/packages/aarch64_cortex-a53/base/amneziawg-tools_*.ipk awg/
+          cp bin/packages/aarch64_cortex-a53/base/luci-proto-amneziawg_*.ipk awg/
+          cp bin/targets/ipq806x/generic/packages/kmod-amneziawg_*.ipk awg/
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: "AmneziaWG OpenWrt v${{ env.gl_version }} (ATX1800)"
+          tag_name: "ATX1800_${{ env.gl_version }}"
+          files: openwrt/awg/*.ipk
