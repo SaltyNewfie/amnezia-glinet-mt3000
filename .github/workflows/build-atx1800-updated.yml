@@ -1,6 +1,9 @@
 name: Build AmneziaWG for AXT1800 Slate
 
 on:
+  push:
+    tags:
+      - 'v*.*.*'
   workflow_dispatch:
 
 permissions:
@@ -13,10 +16,15 @@ env:
 
 jobs:
   build:
+    name: Build AXT1800 Packages
     runs-on: ubuntu-22.04
 
     steps:
-      # 1) Grab the package definitions overlay
+      # 1) Checkout this repo (with your buildinfo file)
+      - name: Checkout main repo
+        uses: actions/checkout@v4
+
+      # 2) Checkout the AmneziaWG overlay
       - name: Checkout AmneziaWG overlay
         uses: actions/checkout@v4
         with:
@@ -24,30 +32,30 @@ jobs:
           path: amneziawg-openwrt
           fetch-depth: 0
 
-      # 2) Clone OpenWrt itself
+      # 3) Clone the OpenWrt snapshot branch
       - name: Clone OpenWrt snapshot
         run: |
           git clone --depth 1 --branch "${OWR_BRANCH}" \
             https://github.com/openwrt/openwrt.git openwrt
 
-      # 3) Copy your full 4.8.0 .config into place
+      # 4) Apply your full 533-line .config
       - name: Apply GL.iNet buildinfo (.config)
         run: |
           cp config_${{ env.GL_VERSION }}.buildinfo openwrt/.config
 
-      # 4) Overlay in the AmneziaWG packages
+      # 5) Overlay in the package definitions
       - name: Copy AmneziaWG package overlay
         run: |
           cp -r amneziawg-openwrt/package/amneziawg-* openwrt/package/
 
-      # 5) Prepare feeds (only core feeds, overlays are already in openwrt/package/)
+      # 6) Prepare feeds
       - name: Prepare feeds
         run: |
           cd openwrt
           ./scripts/feeds update -a
           ./scripts/feeds install -a
 
-      # 6) Compile your three packages
+      # 7) Build only your three packages
       - name: Build AmneziaWG packages
         run: |
           cd openwrt
@@ -55,7 +63,7 @@ jobs:
           make package/luci-proto-amneziawg/compile V=s -j$(nproc)
           make package/kmod-amneziawg/compile V=s -j$(nproc)
 
-      # 7) Collect the resulting .ipk files
+      # 8) Collect artifacts
       - name: Collect artifacts
         run: |
           cd openwrt
@@ -64,10 +72,10 @@ jobs:
           cp bin/packages/aarch64_cortex-a53/base/luci-proto-amneziawg_*.ipk awg/
           cp bin/targets/ipq806x/generic/packages/kmod-amneziawg_*.ipk awg/
 
-      # 8) Push a GitHub Release
+      # 9) Create GitHub Release
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
-          name: "AmneziaWG v${{ env.GL_VERSION }} (ATX1800)"
-          tag_name: "ATX1800_v${{ env.GL_VERSION }}"
+          name: "AmneziaWG v${{ env.GL_VERSION }} (AXT1800)"
+          tag_name: "${{ github.ref_name }}"
           files: openwrt/awg/*.ipk
