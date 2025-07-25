@@ -10,11 +10,9 @@ permissions:
   contents: write
 
 env:
-  # build against the 23.05 snapshot branch
   OWR_BRANCH: openwrt-23.05
-  # (optional) pin to an exact snapshot commit; remove the checkout lines below if you don't need this
-  # OWR_COMMIT: 'abcdef1234567890abcdef1234567890abcdef12'
-  # your GL.iNet release version
+  # Optional: pin to a known snapshot commit
+  # OWR_COMMIT: '<YOUR_23.05_SNAPSHOT_SHA>'
   GL_VERSION: '4.8.0'
   GL_VERMAGIC: any
 
@@ -32,15 +30,24 @@ jobs:
           git clone --depth 1 --branch "${OWR_BRANCH}" \
             https://github.com/openwrt/openwrt.git openwrt
           cd openwrt
-          # if you want to pin to a known snapshot, uncomment:
+          # If you want to pin to a specific commit, uncomment:
           # git fetch --depth 1 origin "${OWR_COMMIT}"
           # git checkout "${OWR_COMMIT}"
           cd ..
 
-      - name: Apply GL.iNet buildinfo (full .config)
+      - name: Apply GL.iNet buildinfo (.config)
         run: |
-          # copy your 533-line config_4.8.0.buildinfo into place
           cp config_${{ env.GL_VERSION }}.buildinfo openwrt/.config
+
+      - name: Enable AmneziaWG packages
+        run: |
+          cd openwrt
+          # Force-enable your three packages
+          scripts/config --enable PACKAGE_amneziawg-tools
+          scripts/config --enable PACKAGE_luci-proto-amneziawg
+          scripts/config --enable PACKAGE_kmod-amneziawg
+          # Regenerate .config with these selections
+          make defconfig
 
       - name: Prepare feeds
         run: |
@@ -51,7 +58,6 @@ jobs:
       - name: Build AmneziaWG packages
         run: |
           cd openwrt
-          # non-interactively compile only your three packages
           make package/amneziawg-tools/compile V=s -j$(nproc)
           make package/luci-proto-amneziawg/compile V=s -j$(nproc)
           make package/kmod-amneziawg/compile V=s -j$(nproc)
