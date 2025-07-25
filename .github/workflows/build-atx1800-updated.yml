@@ -1,4 +1,4 @@
-name: Build AmneziaWG for ATX1800 Slate
+name: Build AmneziaWG for AXT1800 Slate
 
 on:
   push:
@@ -10,8 +10,12 @@ permissions:
   contents: write
 
 env:
-  OWR_BRANCH: openwrt-24.10
-  GL_VERSION: 4.7.5
+  # build against the 23.05 snapshot branch
+  OWR_BRANCH: openwrt-23.05
+  # (optional) pin to an exact snapshot commit; remove the checkout lines below if you don't need this
+  # OWR_COMMIT: 'abcdef1234567890abcdef1234567890abcdef12'
+  # your GL.iNet release version
+  GL_VERSION: '4.8.0'
   GL_VERMAGIC: any
 
 jobs:
@@ -23,39 +27,36 @@ jobs:
       - name: Checkout AmneziaWG repo
         uses: actions/checkout@v4
 
-      - name: Clone OpenWrt
+      - name: Clone OpenWrt snapshot
         run: |
           git clone --depth 1 --branch "${OWR_BRANCH}" \
             https://github.com/openwrt/openwrt.git openwrt
+          cd openwrt
+          # if you want to pin to a known snapshot, uncomment:
+          # git fetch --depth 1 origin "${OWR_COMMIT}"
+          # git checkout "${OWR_COMMIT}"
+          cd ..
 
-      - name: Prepare Feeds
+      - name: Apply GL.iNet buildinfo (full .config)
+        run: |
+          # copy your 533-line config_4.8.0.buildinfo into place
+          cp config_${{ env.GL_VERSION }}.buildinfo openwrt/.config
+
+      - name: Prepare feeds
         run: |
           cd openwrt
           ./scripts/feeds update -a
           ./scripts/feeds install -a
 
-      - name: Configure defaults
+      - name: Build AmneziaWG packages
         run: |
           cd openwrt
-          make defconfig
-
-      - name: Enable AmneziaWG packages
-        run: |
-          cd openwrt
-          scripts/config --enable PACKAGE_amneziawg-tools
-          scripts/config --enable PACKAGE_luci-proto-amneziawg
-          scripts/config --enable PACKAGE_kmod-amneziawg
-          # regenerate .config to include those selections
-          make defconfig
-
-      - name: Build Packages
-        run: |
-          cd openwrt
+          # non-interactively compile only your three packages
           make package/amneziawg-tools/compile V=s -j$(nproc)
           make package/luci-proto-amneziawg/compile V=s -j$(nproc)
           make package/kmod-amneziawg/compile V=s -j$(nproc)
 
-      - name: Collect Artifacts
+      - name: Collect artifacts
         run: |
           cd openwrt
           mkdir -p awg
@@ -67,5 +68,5 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           name: "AmneziaWG v${{ env.GL_VERSION }} (AXT1800)"
-          tag_name: "ATX1800_v${{ env.GL_VERSION }}"
+          tag_name: "AXT1800_v${{ env.GL_VERSION }}"
           files: openwrt/awg/*.ipk
